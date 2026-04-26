@@ -209,6 +209,11 @@ bool CrawlerWidget::isTextWrapEnabled() const
     return logMainView_->isTextWrapEnabled();
 }
 
+QWidget* CrawlerWidget::getSearchInfo() const
+{
+	return searchInfoLine_;
+}
+
 void CrawlerWidget::reloadPredefinedFilters() const
 {
     predefinedFilters_->populatePredefinedFilters();
@@ -965,7 +970,7 @@ void CrawlerWidget::setup()
 
     // The views
     auto bottomWindow = new QWidget;
-    bottomWindow->setContentsMargins( 2, 0, 2, 0 );
+    bottomWindow->setContentsMargins( 0, 0, 0, 0 );
 
     overviewWidget_ = new OverviewWidget();
     logMainView_
@@ -1125,7 +1130,7 @@ void CrawlerWidget::setup()
     predefinedFilters_ = new PredefinedFiltersComboBox( this );
 
     auto* searchLineLayout = new QHBoxLayout;
-    searchLineLayout->setContentsMargins( 2, 2, 2, 2 );
+    searchLineLayout->setContentsMargins( 5, 2, 5, 2 );
 
     searchLineLayout->addWidget( visibilityBox_ );
     searchLineLayout->addWidget( matchCaseButton_ );
@@ -1151,7 +1156,7 @@ void CrawlerWidget::setup()
     auto* bottomMainLayout = new QVBoxLayout;
     bottomMainLayout->addLayout( searchLineLayout );
     bottomMainLayout->addWidget( tabbedFilteredView_ );
-    bottomMainLayout->setContentsMargins( 2, 2, 2, 2 );
+    bottomMainLayout->setContentsMargins( 0, 0, 0, 0 );
     bottomWindow->setLayout( bottomMainLayout );
 
     addWidget( logMainView_ );
@@ -1709,8 +1714,7 @@ void CrawlerWidget::updateEncoding()
         return codec ? codec : QTextCodec::codecForLocale();
     }();
 
-    QString encodingPrefix = encodingMib_ ? tr( "Displayed as %1" ) : tr( "Detected as %1" );
-    encodingText_ = encodingPrefix.arg( textCodec->name().constData() );
+    encodingText_ = textCodec->name().constData();
 
     logData_->interruptLoading();
 

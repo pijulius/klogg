@@ -75,6 +75,7 @@
 #include <QTemporaryFile>
 #include <QTextBrowser>
 #include <QToolBar>
+#include <QStatusBar>
 #include <QToolTip>
 #include <QUrl>
 #include <QUrlQuery>
@@ -864,17 +865,27 @@ void MainWindow::createToolBars()
     toolBar->addWidget( infoLine );
     toolBar->addAction( stopAction );
 
-    infoToolbarSeparators.reserve( 5 );
-    infoToolbarSeparators.push_back( toolBar->addSeparator() );
-    toolBar->addWidget( sizeField );
-    infoToolbarSeparators.push_back( toolBar->addSeparator() );
-    toolBar->addWidget( dateField );
-    infoToolbarSeparators.push_back( toolBar->addSeparator() );
-    toolBar->addWidget( encodingField );
-    infoToolbarSeparators.push_back( toolBar->addSeparator() );
-    toolBar->addWidget( lineNbField );
-    infoToolbarSeparators.push_back( toolBar->addSeparator() );
+    //infoToolbarSeparators.reserve( 5 );
+    //infoToolbarSeparators.push_back( toolBar->addSeparator() );
+    //toolBar->addWidget( sizeField );
+    //infoToolbarSeparators.push_back( toolBar->addSeparator() );
+    //toolBar->addWidget( dateField );
+    //infoToolbarSeparators.push_back( toolBar->addSeparator() );
+    //toolBar->addWidget( encodingField );
+    //infoToolbarSeparators.push_back( toolBar->addSeparator() );
+    //toolBar->addWidget( lineNbField );
+    //infoToolbarSeparators.push_back( toolBar->addSeparator() );
     toolBar->addAction( showScratchPadAction );
+
+	sizeField->setContentsMargins( 2, 0, 2, 0 );
+	dateField->setContentsMargins( 2, 0, 2, 0 );
+	encodingField->setContentsMargins( 2, 0, 2, 0 );
+	lineNbField->setContentsMargins( 2, 0, 2, 0 );
+
+	statusBar()->addPermanentWidget( sizeField );
+	statusBar()->addPermanentWidget( dateField );
+	statusBar()->addPermanentWidget( encodingField );
+	statusBar()->addPermanentWidget( lineNbField );
 
     showInfoLabels( false );
 }
@@ -1105,7 +1116,8 @@ void MainWindow::clearLog()
     if ( QMessageBox::warning(
              this, tr( "klogg - clear file" ),
              tr( "Clear file %1? File content will be removed from disk, this is irreversible" )
-                 .arg( current_file ) )
+                 .arg( current_file ),
+             QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
          == QMessageBox::Yes ) {
         QFile::resize( current_file, 0 );
     }
@@ -1337,12 +1349,12 @@ void MainWindow::lineNumberHandler( LineNumber startLine, LinesCount nLines, Lin
 
     if ( fileNbLine != 0 ) {
         if ( nSymbols.get() == 0 ) {
-            lineNbField->setText( tr( "Ln:%1/%2" ).arg( startLine.get() + 1 ).arg( fileNbLine ) );
+            lineNbField->setText( tr( "Line: %1/%2" ).arg( startLine.get() + 1 ).arg( fileNbLine ) );
         }
         else {
             if ( nLines.get() == 1 ) {
                 // portion selection on one line
-                lineNbField->setText( tr( "Ln:%1/%2 Col:%3 Sel:%4|%5" )
+                lineNbField->setText( tr( "Line: %1/%2 Col:%3 Sel: %4|%5" )
                                           .arg( startLine.get() + 1 )
                                           .arg( fileNbLine )
                                           .arg( startCol.get() )
@@ -1351,7 +1363,7 @@ void MainWindow::lineNumberHandler( LineNumber startLine, LinesCount nLines, Lin
             }
             else {
                 // multiple lines selection
-                lineNbField->setText( tr( "Ln:%1/%2 Sel:%4|%5" )
+                lineNbField->setText( tr( "Line: %1/%2 Sel: %4|%5" )
                                           .arg( startLine.get() + 1 )
                                           .arg( fileNbLine )
                                           .arg( nSymbols.get() )
@@ -1459,6 +1471,14 @@ void MainWindow::currentTabChanged( int index )
 {
     LOG_DEBUG << "currentTabChanged";
 
+	static QWidget *prevSearchInfo;
+
+	if (prevSearchInfo != nullptr) {
+		statusBar()->removeWidget(prevSearchInfo);
+		prevSearchInfo->hide();
+		prevSearchInfo = nullptr;
+	}
+
     if ( index >= 0 ) {
         auto* crawler_widget = static_cast<CrawlerWidget*>( mainTabWidget_.widget( index ) );
         signalMux_.setCurrentDocument( crawler_widget );
@@ -1472,6 +1492,11 @@ void MainWindow::currentTabChanged( int index )
         updateFavoritesMenu();
 
         editMenu->setEnabled( true );
+
+		prevSearchInfo = crawler_widget->getSearchInfo();
+		prevSearchInfo->show();
+
+        statusBar()->addWidget( prevSearchInfo );
     }
     else {
         // No tab left
@@ -1930,7 +1955,7 @@ void MainWindow::updateInfoLine()
 
     if ( lastModified.isValid() ) {
         const QString date = defaultLocale.toString( lastModified, QLocale::NarrowFormat );
-        dateField->setText( tr( "modified on %1" ).arg( date ) );
+        dateField->setText( date );
         dateField->show();
     }
     else {

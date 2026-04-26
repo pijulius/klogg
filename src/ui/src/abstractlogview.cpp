@@ -2147,7 +2147,7 @@ LinesCount AbstractLogView::getNbBottomWrappedVisibleLines() const
         LinesCount wrappedVisibleLines;
         LinesCount unwrappedLines;
         LineNumber unwrappedLineNumber{ logData_->getNbLine().get() - 1 };
-        while ( unwrappedLines < totalLines && unwrappedLines < visibleLines ) {
+        while ( unwrappedLines < totalLines && wrappedVisibleLines < visibleLines ) {
             QString expandedLine = logData_->getExpandedLineString( unwrappedLineNumber );
             WrappedString wrapped{ expandedLine, visibleColumns };
             wrappedVisibleLines += LinesCount(
@@ -2158,7 +2158,7 @@ LinesCount AbstractLogView::getNbBottomWrappedVisibleLines() const
 
         LOG_INFO << "Bottom visible lines " << visibleLines.get() << " wrapped "
                  << wrappedVisibleLines.get();
-        return wrappedVisibleLines;
+        return unwrappedLines;
     }
     else {
         return visibleLines;
@@ -2167,19 +2167,16 @@ LinesCount AbstractLogView::getNbBottomWrappedVisibleLines() const
 
 void AbstractLogView::updateScrollBars()
 {
-    const LinesCount visibleLines = getNbVisibleLines();
     const LineLength visibleColumns = getNbVisibleCols();
-    if ( logData_->getNbLine() < visibleLines ) {
+    const auto visibleWrappedLines = getNbBottomWrappedVisibleLines();
+
+    if ( logData_->getNbLine().get() <= 0 ) {
         verticalScrollBar()->setRange( 0, 0 );
     }
     else {
-        const auto visibleWrappedLines = getNbBottomWrappedVisibleLines();
-        const auto wrappedLinesScrollAdjust = ( visibleWrappedLines - visibleLines ).get();
-
         verticalScrollBar()->setRange(
-            0, static_cast<int>( std::min( logData_->getNbLine().get() - visibleLines.get()
-                                               + LinesCount::UnderlyingType{ 1 }
-                                               + wrappedLinesScrollAdjust,
+            0, static_cast<int>( std::min( logData_->getNbLine().get() - visibleWrappedLines.get()
+                                               + LinesCount::UnderlyingType{ 1 },
                                            maxValue<LinesCount>().get() ) ) );
     }
 
@@ -2225,10 +2222,13 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
     static const QBrush markBrush = QBrush( "dodgerblue" );
     static const QBrush markedMatchBrush = QBrush( "violet" );
 
+    auto lineNumbersColor = palette.color( QPalette::Text );
+    lineNumbersColor.setAlpha(100);
+
     static constexpr int SeparatorWidth = 1;
-    static constexpr int BulletAreaWidth = 11;
+    static constexpr int BulletAreaWidth = 20;
     static constexpr int ContentMarginWidth = 1;
-    static constexpr int LineNumberPadding = 3;
+    static constexpr int LineNumberPadding = 10;
 
     // First check the lines to be drawn are within range (might not be the case if
     // the file has just changed)
@@ -2250,7 +2250,7 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
 
     // First draw the bullet left margin
     painter->setPen( palette.color( QPalette::Text ) );
-    painter->fillRect( 0, 0, BulletAreaWidth, paintDeviceHeight, Qt::darkGray );
+    //painter->fillRect( 0, 0, BulletAreaWidth, paintDeviceHeight, Qt::darkGray );
 
     // Column at which the content should start (pixels)
     int contentStartPosX = BulletAreaWidth + SeparatorWidth;
@@ -2265,16 +2265,16 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
     int lineNumberAreaStartX = 0;
     if ( lineNumbersVisible_ ) {
         const auto lineNumberWidth = charWidth_ * nbDigitsInLineNumber;
-        const auto lineNumberAreaWidth = 2 * LineNumberPadding + lineNumberWidth;
+        const auto lineNumberAreaWidth = LineNumberPadding + lineNumberWidth;
         lineNumberAreaStartX = contentStartPosX;
 
         painter->setPen( palette.color( QPalette::Text ) );
-        painter->fillRect( contentStartPosX - SeparatorWidth, 0,
+        /*painter->fillRect( contentStartPosX - SeparatorWidth, 0,
                            lineNumberAreaWidth + SeparatorWidth, paintDeviceHeight, Qt::darkGray );
 
         painter->drawLine( contentStartPosX + lineNumberAreaWidth - SeparatorWidth, 0,
                            contentStartPosX + lineNumberAreaWidth - SeparatorWidth,
-                           paintDeviceHeight );
+                           paintDeviceHeight );*/
 
         // Update for drawing the actual text
         contentStartPosX += lineNumberAreaWidth;
@@ -2285,7 +2285,7 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
         // contentStartPosX += SEPARATOR_WIDTH;
     }
 
-    painter->drawLine( BulletAreaWidth, 0, BulletAreaWidth, paintDeviceHeight - 1 );
+    //painter->drawLine( BulletAreaWidth, 0, BulletAreaWidth, paintDeviceHeight - 1 );
 
     // This is the total width of the 'margin' (including line number if any)
     // used for mouse calculation etc...
@@ -2511,13 +2511,15 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
             auto selectionPen = QPen( palette.color( QPalette::Highlight ) );
             selectionPen.setWidth( 1 );
             painter->setPen( selectionPen );
-            painter->drawLine( xPos - ContentMarginWidth + 1, yPos, viewport()->width(), yPos );
-            painter->drawLine( xPos - ContentMarginWidth + 1, yPos + finalLineHeight - 1,
+            painter->drawLine( 0, yPos, viewport()->width(), yPos );
+            painter->drawLine( 0, yPos + finalLineHeight - 1,
                                viewport()->width(), yPos + finalLineHeight - 1 );
         }
 
         // Then draw the bullet
-        painter->setPen( Qt::black );
+        painter->setPen( backColor );
+        if ( !lineNumbersVisible_ )
+            painter->setPen( lineNumbersColor );
         const int circleSize = 3;
         const int arrowHeight = 4;
         const int middleXLine = BulletAreaWidth / 2;
@@ -2545,10 +2547,10 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
             // For pretty circles
             painter->setRenderHint( QPainter::Antialiasing );
 
-            QBrush brush = normalBulletBrush;
-            if ( currentLineType.testFlag( LineTypeFlags::Match ) )
-                brush = matchBulletBrush;
-            painter->setBrush( brush );
+            //QBrush brush = normalBulletBrush;
+            //if ( currentLineType.testFlag( LineTypeFlags::Match ) )
+            //    brush = matchBulletBrush;
+            painter->setBrush( QBrush( backColor ) );
             painter->drawEllipse( middleXLine - circleSize, middleYLine - circleSize,
                                   circleSize * 2, circleSize * 2 );
         }
@@ -2558,8 +2560,8 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
             static const QString lineNumberFormat( "%1" );
             const QString& lineNumberStr = lineNumberFormat.arg(
                 displayLineNumber( lineNumber ).get(), nbDigitsInLineNumber );
-            painter->setPen( Qt::white );
-            painter->drawText( lineNumberAreaStartX + LineNumberPadding, yPos + fontAscent,
+            painter->setPen( lineNumbersColor );
+            painter->drawText( lineNumberAreaStartX, yPos + fontAscent,
                                lineNumberStr );
         }
         for ( size_t i = 0u; i < wrappedLineView.wrappedLinesCount(); ++i ) {
@@ -2582,10 +2584,13 @@ QPixmap AbstractLogView::drawPullToFollowBar( int width, qreal pixelRatio )
     pixmap.setDevicePixelRatio( pixelRatio );
     pixmap.fill( this->palette().color( this->backgroundRole() ) );
     const int nbBars = width / ( barWidth * 2 ) + 1;
+    const QPalette& palette = viewport()->palette();
+    auto brushColor = palette.color( QPalette::Text );
+    brushColor.setAlpha( 15 );
 
     QPainter painter( &pixmap );
     painter.setPen( QPen( QColor( 0, 0, 0, 0 ) ) );
-    painter.setBrush( QBrush( QColor( "lightyellow" ) ) );
+    painter.setBrush( QBrush( brushColor ) );
 
     for ( int i = 0; i < nbBars; ++i ) {
         QPoint points[ 4 ] = { { ( i * 2 + 1 ) * barWidth, 0 },

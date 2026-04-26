@@ -112,6 +112,8 @@ class CrawlerWidget : public QSplitter,
 
     void registerShortcuts();
 
+    QWidget* getSearchInfo() const;
+
   public Q_SLOTS:
     // Stop the asynchoronous loading of the file if one is in progress
     // The file is identified by the view attached to it.
