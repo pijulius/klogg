@@ -864,28 +864,17 @@ void MainWindow::createToolBars()
     toolBar->addAction( addToFavoritesAction );
     toolBar->addWidget( infoLine );
     toolBar->addAction( stopAction );
-
-    //infoToolbarSeparators.reserve( 5 );
-    //infoToolbarSeparators.push_back( toolBar->addSeparator() );
-    //toolBar->addWidget( sizeField );
-    //infoToolbarSeparators.push_back( toolBar->addSeparator() );
-    //toolBar->addWidget( dateField );
-    //infoToolbarSeparators.push_back( toolBar->addSeparator() );
-    //toolBar->addWidget( encodingField );
-    //infoToolbarSeparators.push_back( toolBar->addSeparator() );
-    //toolBar->addWidget( lineNbField );
-    //infoToolbarSeparators.push_back( toolBar->addSeparator() );
     toolBar->addAction( showScratchPadAction );
 
-	sizeField->setContentsMargins( 2, 0, 2, 0 );
-	dateField->setContentsMargins( 2, 0, 2, 0 );
-	encodingField->setContentsMargins( 2, 0, 2, 0 );
-	lineNbField->setContentsMargins( 2, 0, 2, 0 );
+    sizeField->setContentsMargins( 2, 0, 2, 0 );
+    dateField->setContentsMargins( 2, 0, 2, 0 );
+    encodingField->setContentsMargins( 2, 0, 2, 0 );
+    lineNbField->setContentsMargins( 2, 0, 2, 0 );
 
-	statusBar()->addPermanentWidget( sizeField );
-	statusBar()->addPermanentWidget( dateField );
-	statusBar()->addPermanentWidget( encodingField );
-	statusBar()->addPermanentWidget( lineNbField );
+    statusBar()->addPermanentWidget( sizeField );
+    statusBar()->addPermanentWidget( dateField );
+    statusBar()->addPermanentWidget( encodingField );
+    statusBar()->addPermanentWidget( lineNbField );
 
     showInfoLabels( false );
 }

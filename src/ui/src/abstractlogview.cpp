@@ -2250,7 +2250,6 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
 
     // First draw the bullet left margin
     painter->setPen( palette.color( QPalette::Text ) );
-    //painter->fillRect( 0, 0, BulletAreaWidth, paintDeviceHeight, Qt::darkGray );
 
     // Column at which the content should start (pixels)
     int contentStartPosX = BulletAreaWidth + SeparatorWidth;
@@ -2268,14 +2267,6 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
         const auto lineNumberAreaWidth = LineNumberPadding + lineNumberWidth;
         lineNumberAreaStartX = contentStartPosX;
 
-        painter->setPen( palette.color( QPalette::Text ) );
-        /*painter->fillRect( contentStartPosX - SeparatorWidth, 0,
-                           lineNumberAreaWidth + SeparatorWidth, paintDeviceHeight, Qt::darkGray );
-
-        painter->drawLine( contentStartPosX + lineNumberAreaWidth - SeparatorWidth, 0,
-                           contentStartPosX + lineNumberAreaWidth - SeparatorWidth,
-                           paintDeviceHeight );*/
-
         // Update for drawing the actual text
         contentStartPosX += lineNumberAreaWidth;
     }
@@ -2284,8 +2275,6 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
                            paintDeviceHeight, palette.color( QPalette::Disabled, QPalette::Text ) );
         // contentStartPosX += SEPARATOR_WIDTH;
     }
-
-    //painter->drawLine( BulletAreaWidth, 0, BulletAreaWidth, paintDeviceHeight - 1 );
 
     // This is the total width of the 'margin' (including line number if any)
     // used for mouse calculation etc...
@@ -2547,9 +2536,6 @@ void AbstractLogView::drawTextArea( QPaintDevice* paintDevice )
             // For pretty circles
             painter->setRenderHint( QPainter::Antialiasing );
 
-            //QBrush brush = normalBulletBrush;
-            //if ( currentLineType.testFlag( LineTypeFlags::Match ) )
-            //    brush = matchBulletBrush;
             painter->setBrush( QBrush( backColor ) );
             painter->drawEllipse( middleXLine - circleSize, middleYLine - circleSize,
                                   circleSize * 2, circleSize * 2 );
