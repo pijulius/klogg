@@ -208,6 +208,8 @@ class MainWindow : public QMainWindow {
     void updateFavoritesMenu();
     void updateOpenedFilesMenu();
     void updateHighlightersMenu();
+    void updateStopOrReloadAction( const QString& to );
+    void stopOrReload();
     QString strippedName( const QString& fullFileName ) const;
     CrawlerWidget* currentCrawlerWidget() const;
     void displayQuickFindBar( QuickFindMux::QFDirection direction );
@@ -265,8 +267,7 @@ class MainWindow : public QMainWindow {
     QAction* lineNumbersVisibleInFilteredAction;
     QAction* followAction;
     QAction* textWrapAction;
-    QAction* reloadAction;
-    QAction* stopAction;
+    QAction* stopOrReloadAction;
     QAction* editHighlightersAction;
     QAction* optionsAction;
     QAction* showScratchPadAction;
@@ -293,6 +294,8 @@ class MainWindow : public QMainWindow {
     QSystemTrayIcon* trayIcon_;
 
     QIcon mainIcon_;
+    QIcon stopIcon_;
+    QIcon reloadIcon_;
 
     IconLoader iconLoader_;
 

@@ -368,8 +368,7 @@ void MainWindow::reTranslateUI()
 
     followAction->setText( transAction( action::followText ) );
     textWrapAction->setText( transAction( action::wrapText ) );
-    reloadAction->setText( transAction( action::reloadText ) );
-    stopAction->setText( transAction( action::stopText ) );
+    stopOrReloadAction->setText( transAction( action::reloadText ) );
 
     optionsAction->setText( transAction( action::optionsText ) );
     optionsAction->setStatusTip( transAction( action::optionsStatusTip ) );
@@ -574,12 +573,10 @@ void MainWindow::createActions()
     textWrapAction->setEnabled( true );
     connect( textWrapAction, &QAction::toggled, this, &MainWindow::textWrapSet );
 
-    reloadAction = new QAction( tr( action::reloadText ), this );
-    signalMux_.connect( reloadAction, SIGNAL( triggered() ), SLOT( reload() ) );
-
-    stopAction = new QAction( tr( action::stopText ), this );
-    stopAction->setEnabled( true );
-    signalMux_.connect( stopAction, SIGNAL( triggered() ), SLOT( stopLoading() ) );
+    stopOrReloadAction = new QAction( tr( action::stopText ), this );
+    stopOrReloadAction->setEnabled( true );
+    connect( stopOrReloadAction, &QAction::triggered, this,
+             [ this ]( auto ) { this->stopOrReload(); } );
 
     optionsAction = new QAction( tr( action::optionsText ), this );
     optionsAction->setMenuRole( QAction::PreferencesRole );
@@ -720,8 +717,7 @@ void MainWindow::updateShortcuts()
     setShortcuts( openUrlAction, ShortcutAction::MainWindowOpenFromUrl );
     setShortcuts( followAction, ShortcutAction::MainWindowFollowFile );
     setShortcuts( textWrapAction, ShortcutAction::MainWindowTextWrap );
-    setShortcuts( reloadAction, ShortcutAction::MainWindowReload );
-    setShortcuts( stopAction, ShortcutAction::MainWindowStop );
+    setShortcuts( stopOrReloadAction, ShortcutAction::MainWindowReload );
     setShortcuts( showScratchPadAction, ShortcutAction::MainWindowScratchpad );
     setShortcuts( selectOpenFileAction, ShortcutAction::MainWindowSelectOpenFile );
     setShortcuts( goToLineAction, ShortcutAction::LogViewJumpToLine );
@@ -730,9 +726,10 @@ void MainWindow::updateShortcuts()
 
 void MainWindow::loadIcons()
 {
+	stopIcon_ = iconLoader_.load( "icons8-delete" );
+	reloadIcon_ = iconLoader_.load( "icons8-reload" );
     openAction->setIcon( iconLoader_.load( "icons8-open-file" ) );
-    stopAction->setIcon( iconLoader_.load( "icons8-delete" ) );
-    reloadAction->setIcon( iconLoader_.load( "icons8-restore-page" ) );
+    stopOrReloadAction->setIcon( stopIcon_ );
     followAction->setIcon( iconLoader_.load( "icons8-fast-forward" ) );
     showScratchPadAction->setIcon( iconLoader_.load( "icons8-create" ) );
     addToFavoritesAction->setIcon( iconLoader_.load( "icons8-star" ) );
@@ -795,7 +792,7 @@ void MainWindow::createMenus()
     viewMenu->addSeparator();
     viewMenu->addAction( followAction );
     viewMenu->addSeparator();
-    viewMenu->addAction( reloadAction );
+    viewMenu->addAction( stopOrReloadAction );
 
     toolsMenu = menuBar()->addMenu( tr( menu::toolsTitle ) );
 
@@ -859,12 +856,11 @@ void MainWindow::createToolBars()
     toolBar->setMovable( false );
     toolBar->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Minimum );
     toolBar->addAction( openAction );
-    toolBar->addAction( reloadAction );
+    toolBar->addAction( showScratchPadAction );
     toolBar->addAction( followAction );
     toolBar->addAction( addToFavoritesAction );
     toolBar->addWidget( infoLine );
-    toolBar->addAction( stopAction );
-    toolBar->addAction( showScratchPadAction );
+    toolBar->addAction( stopOrReloadAction );
 
     sizeField->setContentsMargins( 2, 0, 2, 0 );
     dateField->setContentsMargins( 2, 0, 2, 0 );
@@ -1385,8 +1381,7 @@ void MainWindow::updateLoadingProgress( int progress )
 
         showInfoLabels( false );
 
-        stopAction->setEnabled( true );
-        reloadAction->setEnabled( false );
+        updateStopOrReloadAction("stop");
     }
 }
 
@@ -1402,8 +1397,7 @@ void MainWindow::handleLoadingFinished( LoadingStatus status )
 
         infoLine->hideGauge();
         showInfoLabels( true );
-        stopAction->setEnabled( false );
-        reloadAction->setEnabled( true );
+        updateStopOrReloadAction("reload");
 
         lineNumberHandler( 0_lnum, LinesCount( 0 ), LineColumn( 0 ), LineLength( 0 ) );
 
@@ -1981,6 +1975,41 @@ void MainWindow::updateHighlightersMenu()
     highlightersMenu->createHighlightersMenu();
     highlightersMenu->addAction( editHighlightersAction, true );
     highlightersMenu->populateHighlightersMenu();
+}
+
+void MainWindow::updateStopOrReloadAction( const QString& to)
+{
+    using namespace klogg::mainwindow;
+
+    if (to == stopOrReloadAction->data())
+        return;
+
+    stopOrReloadAction->setData(to);
+
+    if ("stop" == to) {
+        stopOrReloadAction->setText( tr( action::stopText ) );
+        stopOrReloadAction->setIcon( stopIcon_ );
+
+    } else if ("reload" == to) {
+        stopOrReloadAction->setText( tr( action::reloadText ) );
+        stopOrReloadAction->setIcon( reloadIcon_ );
+    }
+}
+
+void MainWindow::stopOrReload()
+{
+    const auto crawler = currentCrawlerWidget();
+    if (!crawler)
+        return;
+
+    if ("stop" == stopOrReloadAction->data()) {
+        updateStopOrReloadAction("reload");
+        crawler->stopLoading();
+
+    } else if ("reload" == stopOrReloadAction->data()) {
+        updateStopOrReloadAction("stop");
+        crawler->reload();
+    }
 }
 
 void MainWindow::updateFavoritesMenu()
