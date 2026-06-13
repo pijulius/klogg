@@ -24,16 +24,18 @@
 
 class DisplayFilePath {
   public:
-    explicit DisplayFilePath( const QString& fullPath );
+    explicit DisplayFilePath( const QString& fullPath, const QString& command = "" );
 
     QString fullPath() const;
     QString nativeFullPath() const;
     QString displayName() const;
+    QString command() const;
 
   private:
     QString fullPath_;
     QString nativeFullPath_;
     QString displayName_;
+    QString command_;
 };
 
 class FullPathComparator {

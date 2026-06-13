@@ -62,10 +62,11 @@ QString shrinkPath( QString fullPath, int limit, QString delimiter = "…" )
 
 } // namespace
 
-DisplayFilePath::DisplayFilePath( const QString& fullPath )
+DisplayFilePath::DisplayFilePath( const QString& fullPath, const QString& command )
     : fullPath_( fullPath )
     , nativeFullPath_( QDir::toNativeSeparators( fullPath ) )
-    , displayName_( shrinkPath( fullPath, MaxPathLength ) )
+    , displayName_( shrinkPath( !command.isEmpty() ? command : fullPath, MaxPathLength ) )
+    , command_( command )
 {
 }
 
@@ -82,6 +83,11 @@ QString DisplayFilePath::nativeFullPath() const
 QString DisplayFilePath::displayName() const
 {
     return displayName_;
+}
+
+QString DisplayFilePath::command() const
+{
+    return command_;
 }
 
 FullPathComparator::FullPathComparator( const QString& path )

@@ -360,6 +360,9 @@ void MainWindow::reTranslateUI()
     openUrlAction->setText( transAction( action::openUrlText ) );
     openUrlAction->setStatusTip( transAction( action::openUrlStatusTip ) );
 
+    openFromCommandAction->setText( transAction( action::openFromCommandText ) );
+    openFromCommandAction->setStatusTip( transAction( action::openFromCommandStatusTip ) );
+
     overviewVisibleAction->setText( transAction( action::overviewVisibleText ) );
 
     lineNumbersVisibleInMainAction->setText( transAction( action::lineNumbersVisibleInMainText ) );
@@ -368,7 +371,7 @@ void MainWindow::reTranslateUI()
 
     followAction->setText( transAction( action::followText ) );
     textWrapAction->setText( transAction( action::wrapText ) );
-    stopOrReloadAction->setText( transAction( action::reloadText ) );
+    stopOrReloadAction->setText( transAction( action::stopText ) );
 
     optionsAction->setText( transAction( action::optionsText ) );
     optionsAction->setStatusTip( transAction( action::optionsStatusTip ) );
@@ -543,6 +546,10 @@ void MainWindow::createActions()
     openUrlAction->setStatusTip( tr( action::openUrlStatusTip ) );
     connect( openUrlAction, &QAction::triggered, this, [ this ]( auto ) { this->openUrl(); } );
 
+    openFromCommandAction = new QAction( tr( action::openFromCommandText ), this );
+    openFromCommandAction->setStatusTip( tr( action::openFromCommandStatusTip ) );
+    connect( openFromCommandAction, &QAction::triggered, this, [ this ]( auto ) { this->openFromCommand(); } );
+
     overviewVisibleAction = new QAction( tr( action::overviewVisibleText ), this );
     overviewVisibleAction->setCheckable( true );
     overviewVisibleAction->setChecked( config.isOverviewVisible() );
@@ -715,6 +722,7 @@ void MainWindow::updateShortcuts()
     setShortcuts( copyPathToClipboardAction, ShortcutAction::MainWindowCopyPathToClipboard );
     setShortcuts( openClipboardAction, ShortcutAction::MainWindowOpenFromClipboard );
     setShortcuts( openUrlAction, ShortcutAction::MainWindowOpenFromUrl );
+    setShortcuts( openFromCommandAction, ShortcutAction::MainWindowOpenFromCommand );
     setShortcuts( followAction, ShortcutAction::MainWindowFollowFile );
     setShortcuts( textWrapAction, ShortcutAction::MainWindowTextWrap );
     setShortcuts( stopOrReloadAction, ShortcutAction::MainWindowReload );
@@ -746,6 +754,7 @@ void MainWindow::createMenus()
     fileMenu->addAction( openAction );
     fileMenu->addAction( openClipboardAction );
     fileMenu->addAction( openUrlAction );
+    fileMenu->addAction( openFromCommandAction );
     recentFilesMenu = fileMenu->addMenu( tr( "Open Recent" ) );
     for ( auto i = 0u; i < recentFileActions.size(); ++i ) {
         recentFilesMenu->addAction( recentFileActions[ i ] );
@@ -856,11 +865,11 @@ void MainWindow::createToolBars()
     toolBar->setMovable( false );
     toolBar->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Minimum );
     toolBar->addAction( openAction );
-    toolBar->addAction( showScratchPadAction );
     toolBar->addAction( followAction );
     toolBar->addAction( addToFavoritesAction );
     toolBar->addWidget( infoLine );
     toolBar->addAction( stopOrReloadAction );
+    toolBar->addAction( showScratchPadAction );
 
     sizeField->setContentsMargins( 2, 0, 2, 0 );
     dateField->setContentsMargins( 2, 0, 2, 0 );
@@ -1021,8 +1030,14 @@ void MainWindow::openFileFromFavorites( QAction* action )
         return;
     }
 
-    const auto filename = action->data().toString();
-    if ( QFileInfo{ filename }.isReadable() ) {
+    const auto actionData = action->data().value<QPair<QString, QString>>();
+    const auto filename = actionData.first;
+    const auto command = actionData.second;
+
+    if ( command != nullptr && !command.isEmpty()) {
+        loadFile( filename, true, command );
+
+    } else if ( QFileInfo{ filename }.isReadable() ) {
         loadFile( filename );
     }
     else {
@@ -1160,6 +1175,23 @@ void MainWindow::openUrl()
     if ( ok && !url.isEmpty() ) {
         openRemoteFile( url );
     }
+}
+
+void MainWindow::openFromCommand()
+{
+    bool ok;
+    QString command = QInputDialog::getText( this, tr( "Open from Command" ),
+                                             tr( "Command to run:" ), QLineEdit::Normal,
+                                             QString{}, &ok );
+    if ( !ok || command.isEmpty() ) {
+        return;
+    }
+
+    auto tempFile = new QTemporaryFile( tempDir_.filePath( "klogg_stdio" ), this );
+    tempFile->open();
+    tempFile->close();
+
+	loadFile(tempFile->fileName(), true, command);
 }
 
 // Opens the 'Highlighters' dialog box
@@ -1397,7 +1429,9 @@ void MainWindow::handleLoadingFinished( LoadingStatus status )
 
         infoLine->hideGauge();
         showInfoLabels( true );
-        updateStopOrReloadAction("reload");
+
+        if (!currentCrawlerWidget()->isFromCommand())
+            updateStopOrReloadAction("reload");
 
         lineNumberHandler( 0_lnum, LinesCount( 0 ), LineColumn( 0 ), LineLength( 0 ) );
 
@@ -1439,7 +1473,10 @@ void MainWindow::closeTab( int index, ActionInitiator initiator )
     widget->stopLoading();
     mainTabWidget_.removeCrawler( index );
 
-    if ( initiator == ActionInitiator::User ) {
+    if (widget->isFromCommand()) {
+        QFile::remove( session_.getFilename( widget ) );
+
+    } else if ( initiator == ActionInitiator::User ) {
         addRecentFile( session_.getFilename( widget ) );
     }
 
@@ -1469,6 +1506,13 @@ void MainWindow::currentTabChanged( int index )
 
         // New tab is set up with fonts etc...
         Q_EMIT optionsChanged();
+
+        if ( crawler_widget->isFromCommand() ) {
+            if (crawler_widget->getFromCommandProcess()->processId())
+                updateStopOrReloadAction("stop");
+            else
+                updateStopOrReloadAction("reload");
+        }
 
         updateMenuBarFromDocument( crawler_widget );
         updateTitleBar( session_.getFilename( crawler_widget ) );
@@ -1728,7 +1772,7 @@ bool MainWindow::extractAndLoadFile( const QString& fileName )
 // Create a CrawlerWidget for the passed file, start its loading
 // and update the title bar.
 // The loading is done asynchronously.
-bool MainWindow::loadFile( const QString& fileName, bool followFile )
+bool MainWindow::loadFile( const QString& fileName, bool followFile, const QString& fromCommand )
 {
     LOG_DEBUG << "loadFile ( " << fileName.toStdString() << " )";
 
@@ -1740,6 +1784,25 @@ bool MainWindow::loadFile( const QString& fileName, bool followFile )
         crawlerWindow->mainTabWidget_.setCurrentWidget( existing_crawler );
         crawlerWindow->activateWindow();
         return true;
+    }
+
+    if (!fromCommand.isEmpty()) {
+        QDir fileDir;
+        QString filePath = QFileInfo{ fileName }.absolutePath();
+
+        if (!fileDir.mkpath( filePath )) {
+            QMessageBox::critical( this, tr( "klogg - Open from Command" ),
+                                         tr( "Failed to create path: %1" ).arg( filePath ) );
+            return false;
+        }
+
+        QFile file( fileName );
+        if (!file.open(QIODevice::ReadWrite)) {
+            QMessageBox::critical( this, tr( "klogg - Open from Command" ),
+                                         tr( "Failed to create file: %1" ).arg( fileName ) );
+            return false;
+        }
+        file.close();
     }
 
     const auto decompressAction = Decompressor::action( fileName );
@@ -1774,6 +1837,27 @@ bool MainWindow::loadFile( const QString& fileName, bool followFile )
                 return false;
             }
 
+            if (!fromCommand.isEmpty()) {
+                crawler_widget->startFromCommand(fileName, fromCommand);
+                const auto process = crawler_widget->getFromCommandProcess();
+
+                if (process != nullptr) {
+                    connect( process,
+                         QOverload<int, QProcess::ExitStatus>::of( &QProcess::finished ),
+                         [ this, fileName, process ]( int, QProcess::ExitStatus ) {
+                             updateStopOrReloadAction("reload");
+                         } );
+
+                    connect( process,
+                         &QProcess::errorOccurred,
+                         [ this, fileName, process ]( QProcess::ProcessError ) {
+                             QMessageBox::critical( this, tr( "klogg - Open from Command" ),
+                                 tr( "Failed to run command: %1" ).arg( process->errorString() ) );
+                             updateStopOrReloadAction("reload");
+                         } );
+                }
+            }
+
             // We won't show the widget until the file is fully loaded
             crawler_widget->hide();
 
@@ -1792,8 +1876,14 @@ bool MainWindow::loadFile( const QString& fileName, bool followFile )
             // of the loading, with no way to switch to another tab
             mainTabWidget_.setCurrentIndex( index );
 
-            addRecentFile( fileName );
-            updateOpenedFilesMenu();
+            if (!fromCommand.isEmpty()) {
+                auto displayFilePath = DisplayFilePath{ fileName, fromCommand };
+                mainTabWidget_.setTabText( index, displayFilePath.displayName() );
+
+            } else {
+                addRecentFile( fileName );
+                updateOpenedFilesMenu();
+            }
 
             const auto& config = Configuration::get();
             if ( config.anyFileWatchEnabled() && ( followFile || config.followFileOnLoad() ) ) {
@@ -2053,10 +2143,14 @@ void MainWindow::updateFavoritesMenu()
 
     for ( const auto& file : favorites ) {
         auto action = favoritesMenu->addAction( file.displayName() );
+        auto command = file.command();
+        if (!command.isEmpty())
+            action->setText(command);
 
         action->setActionGroup( favoritesGroup );
         action->setToolTip( file.nativeFullPath() );
-        action->setData( file.fullPath() );
+
+        action->setData( QVariant::fromValue(QPair<QString, QString>(file.fullPath(), file.command())) );
     }
 }
 
@@ -2067,7 +2161,10 @@ void MainWindow::addToFavorites()
         const auto path = session_.getFilename( crawler );
 
         if ( addToFavoritesAction->data().toBool() ) {
-            favorites.add( path );
+            if (crawler->isFromCommand())
+                favorites.add( path, crawler->getFromCommand() );
+            else
+                favorites.add( path );
         }
         else {
             favorites.remove( path );
@@ -2234,7 +2331,8 @@ void MainWindow::writeSettings()
         widget_list;
     for ( int i = 0; i < mainTabWidget_.count(); ++i ) {
         auto view = qobject_cast<const CrawlerWidget*>( mainTabWidget_.widget( i ) );
-        widget_list.emplace_back( view, 0UL, view->context() );
+        if (!view->isFromCommand())
+            widget_list.emplace_back( view, 0UL, view->context() );
     }
     session_.save( widget_list, saveGeometry() );
 }

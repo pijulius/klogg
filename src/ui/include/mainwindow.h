@@ -121,6 +121,7 @@ class MainWindow : public QMainWindow {
     void openInEditor();
     void openClipboard();
     void openUrl();
+    void openFromCommand();
     void editHighlighters();
     void editPredefinedFilters( const QString& newFilter = {} );
     void options();
@@ -198,7 +199,7 @@ class MainWindow : public QMainWindow {
     void createTrayIcon();
     void readSettings();
     void writeSettings();
-    bool loadFile( const QString& fileName, bool followFile = false );
+    bool loadFile( const QString& fileName, bool followFile = false, const QString& fromCommand = "" );
     bool extractAndLoadFile( const QString& fileName );
     void openRemoteFile( const QUrl& url );
     void updateTitleBar( const QString& fileName );
@@ -262,6 +263,7 @@ class MainWindow : public QMainWindow {
     QAction* openInEditorAction;
     QAction* openClipboardAction;
     QAction* openUrlAction;
+    QAction* openFromCommandAction;
     QAction* overviewVisibleAction;
     QAction* lineNumbersVisibleInMainAction;
     QAction* lineNumbersVisibleInFilteredAction;

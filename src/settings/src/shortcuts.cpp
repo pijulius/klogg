@@ -245,6 +245,13 @@ const ShortcutAction::ShortcutList& ShortcutAction::defaultShortcutList()
             },
         },
         {
+            MainWindowOpenFromCommand,
+            {
+                QApplication::tr( "Open from Command" ),
+                QStringList{},
+            },
+        },
+        {
             MainWindowFollowFile,
             {
                 QApplication::tr( "Monitor file changes" ),

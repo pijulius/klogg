@@ -26,13 +26,13 @@ namespace {
 constexpr const int FavoriteFilesVersion = 1;
 }
 
-void FavoriteFiles::add( const QString& path )
+void FavoriteFiles::add( const QString& path, const QString& command )
 {
     if ( std::any_of( files_.begin(), files_.end(), FullPathComparator( path ) ) ) {
         return;
     }
 
-    auto newFile = DisplayFilePath( path );
+    auto newFile = DisplayFilePath( path, command );
 
     auto lowerBound = std::lower_bound( files_.begin(), files_.end(), newFile,
                                         []( const DisplayFilePath& lhs, const DisplayFilePath& rhs ) {
@@ -64,6 +64,7 @@ void FavoriteFiles::saveToStorage( QSettings& settings ) const
     for ( auto i = 0u; i < files_.size(); ++i ) {
         settings.setArrayIndex( static_cast<int>( i ) );
         settings.setValue( "name", files_.at( i ).fullPath() );
+        settings.setValue( "command", files_.at( i ).command() );
     }
     settings.endArray();
     settings.endGroup();
@@ -82,7 +83,8 @@ void FavoriteFiles::retrieveFromStorage( QSettings& settings )
             for ( int i = 0; i < size; ++i ) {
                 settings.setArrayIndex( static_cast<int>( i ) );
                 QString path = settings.value( "name" ).toString();
-                files_.emplace_back( path );
+                QString command = settings.value( "command" ).toString();
+                files_.emplace_back( path, command );
             }
             settings.endArray();
         }

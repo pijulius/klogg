@@ -49,6 +49,9 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
+#ifndef Q_OS_WIN
+#include <signal.h>
+#endif
 
 #include <QAction>
 #include <QApplication>
@@ -209,9 +212,55 @@ bool CrawlerWidget::isTextWrapEnabled() const
     return logMainView_->isTextWrapEnabled();
 }
 
+bool CrawlerWidget::isFromCommand() const
+{
+    return !fromCommand_.isEmpty();
+}
+
 QWidget* CrawlerWidget::getSearchInfo() const
 {
 	return searchInfoLine_;
+}
+
+void CrawlerWidget::startFromCommand(const QString& filename, const QString& command)
+{
+    if (fromCommandProcess_ != nullptr) {
+#ifdef Q_OS_WIN
+        fromCommandProcess_->start( "cmd", { "/c", command } );
+#else
+        fromCommandProcess_->start( "/bin/sh", { "-c", command } );
+#endif
+        return;
+    }
+
+    if (filename.isEmpty() || command.isEmpty())
+        return;
+
+    fromCommand_ = command;
+    fromCommandProcess_ = new QProcess( this );
+    fromCommandProcess_->setProcessChannelMode( QProcess::SeparateChannels );
+    fromCommandProcess_->setStandardOutputFile( filename, QIODevice::Append );
+    fromCommandProcess_->setStandardErrorFile( filename, QIODevice::Append );
+
+#ifndef Q_OS_WIN
+    fromCommandProcess_->setChildProcessModifier( []() { ::setpgid( 0, 0 ); } );
+#endif
+
+#ifdef Q_OS_WIN
+    fromCommandProcess_->start( "cmd", { "/c", command } );
+#else
+    fromCommandProcess_->start( "/bin/sh", { "-c", command } );
+#endif
+}
+
+QString CrawlerWidget::getFromCommand() const
+{
+	return fromCommand_;
+}
+
+QProcess* CrawlerWidget::getFromCommandProcess() const
+{
+	return fromCommandProcess_;
 }
 
 void CrawlerWidget::reloadPredefinedFilters() const
@@ -264,6 +313,14 @@ void CrawlerWidget::changeEvent( QEvent* event )
 
 void CrawlerWidget::stopLoading()
 {
+    if (fromCommandProcess_ != nullptr) {
+        auto pid = fromCommandProcess_->processId();
+        if (pid > 0) {
+            fromCommandProcess_->blockSignals( true );
+            ::kill( -static_cast<pid_t>(pid), SIGKILL );
+        }
+    }
+
     logFilteredData_->interruptSearch();
     logData_->interruptLoading();
 }
@@ -276,6 +333,11 @@ void CrawlerWidget::reload()
     logFilteredData_->clearMarks();
     filteredView_->updateData();
     printSearchInfoMessage();
+
+    if (fromCommandProcess_ != nullptr) {
+        fromCommandProcess_->blockSignals( false );
+        startFromCommand("", fromCommand_);
+    }
 
     logData_->reload();
 

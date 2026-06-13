@@ -49,6 +49,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QPushButton>
+#include <QProcess>
 #include <QSplitter>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -109,10 +110,14 @@ class CrawlerWidget : public QSplitter,
     bool isFollowEnabled() const;
 
     bool isTextWrapEnabled() const;
+    bool isFromCommand() const;
 
     void registerShortcuts();
+    void startFromCommand(const QString& filename, const QString& command);
 
     QWidget* getSearchInfo() const;
+    QString getFromCommand() const;
+    QProcess* getFromCommandProcess() const;
 
   public Q_SLOTS:
     // Stop the asynchoronous loading of the file if one is in progress
@@ -433,6 +438,8 @@ class CrawlerWidget : public QSplitter,
     QString encodingText_;
 
     ColorLabelsManager colorLabelsManager_;
+    QProcess* fromCommandProcess_ = nullptr;
+    QString fromCommand_;
 };
 
 #endif
